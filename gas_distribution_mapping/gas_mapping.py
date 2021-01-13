@@ -5,6 +5,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
 import sys
+import csv
 
 # Indicates the likelihood that the measurement represents the concentration at
 # a given distance from the point of measurement.
@@ -36,6 +37,23 @@ def plot_heat_map():
     data = data.pivot("y(mm)", "x(mm)", "sensor_value")
     ax = sns.heatmap(data, vmin=0, vmax=1)
     plt.show()
+
+# Update value of cell using extrapolate
+def update_cell():
+    with open('new_data.csv', newline='') as csvfile:
+        reader = csv.reader(csvfile)
+        data = list(reader)
+        del data[0]   
+        temp_data = data
+        for temp_row in temp_data:
+            for row in data:
+                displacement = displacement_cal(temp_row[0], temp_row[1], row[0], row[1])
+                weight = weight_cal(displacement)
+
+
+
+
+
 
 if __name__ == '__main__':
     plot_heat_map()
