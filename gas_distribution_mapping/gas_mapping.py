@@ -60,7 +60,8 @@ def update_cell(csv_name):
             reader_2 = csv.reader(csvfile_2)
             blank_data = list(reader_2)
             del blank_data[0]   
-
+            
+            # Adding accumulated weight and accumulated reading
             for row in data:
                 for blank_row in blank_data:
                     measurement_x = int(row[0])
@@ -73,7 +74,7 @@ def update_cell(csv_name):
                     blank_row[4] = float(blank_row[4]) + float(row[2])*weight
 
             for blank_row in blank_data:
-                if(float(blank_row[3]) != 0):
+                if(float(blank_row[3]) != 0 and float(blank_row[2]) == 0):
                     blank_row[2] = float(blank_row[4]) / float(blank_row[3])
 
             with open('output.csv', 'w', newline='') as file:
