@@ -1,4 +1,4 @@
-x(mm),y(mm),sensor_value
+x,y,sensor_value
 0,1450,0.06
 200,1450,0.06
 400,1350,0.06
