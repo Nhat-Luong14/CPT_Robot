@@ -53,12 +53,6 @@ def str2list_float(str_val):
     return list_val
 
 
-# Save blank grid data to csv file for mapping process
-def save_grid_csv(data_grid, csv_name):
-    new_name = csv_name.replace('.', "_grid.")
-    data_grid.to_csv(new_name, index=False)
-
-
 # To check whether a place in a blank map has measurement value
 def check_exist(x,y,data):
     for i in range(len(data.index)):
@@ -102,8 +96,6 @@ if __name__ == "__main__":
     data = pd.read_csv(csv_name) 
     new_data = data_makeup(data)
     data_grid = insert_blank(new_data)
-    pd.set_option("display.max_rows", 101)
-    save_grid_csv(data_grid, csv_name)
     mapping.update_cell(new_data, data_grid)
     mapping.plot_heat_map('output.csv')
     print("Done!!")
