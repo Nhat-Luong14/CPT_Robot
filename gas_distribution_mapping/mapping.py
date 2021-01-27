@@ -1,12 +1,8 @@
 import math
-from numpy.core.fromnumeric import mean
-
-from numpy.lib.function_base import average
 import config
 import seaborn as sns 
 import matplotlib.pyplot as plt
 import pandas as pd
-import sys
 
 # Indicates the likelihood that the measurement represents the concentration at
 # a given distance from the point of measurement.
