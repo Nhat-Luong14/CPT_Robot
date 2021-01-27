@@ -27,14 +27,14 @@ def roundPartial (value, resolution):
 
 
 # Normalize the gas sensor reading value. The range is [0,1]
-def nomalize(data):
-    column = data["sensor_value"]
+def nomalize(data, column_name):
+    column = data[column_name]
     max_val = column.max()
     min_val = column.min()
     for i in range(len(data.index)):
-        val = data.at[i,'sensor_value']
+        val = data.at[i,column_name]
         average_val = round((val - min_val)/(max_val - min_val),2)
-        data.at[i,'sensor_value'] = average_val
+        data.at[i,column_name] = average_val
     return data
 
 
@@ -81,7 +81,7 @@ def data_makeup(data):
     for i in range(len(data.index)):
         sensor_val_str = data.at[i,'sensor_value']
         data.at[i,'sensor_value'] = get_avarage(sensor_val_str)
-    data = nomalize(data)
+    data = nomalize(data, 'sensor_value')
     data = rounding(data)
     return data
 
