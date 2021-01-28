@@ -44,8 +44,8 @@ def plot_heat_map(csv_name):
     #ax = sns.heatmap(data, vmin=0, vmax=1)
 
     fig, (ax1, ax2) = plt.subplots(1,2)
-    sns.heatmap(data_cme, ax=ax1, vmin=0, vmax=1)
-    sns.heatmap(data_vme, ax=ax2, vmin=0, vmax=1)
+    sns.heatmap(data_cme, ax=ax1, vmin=0, vmax=1, cbar_kws={"orientation": "horizontal"}, xticklabels=4, yticklabels=4)
+    sns.heatmap(data_vme, ax=ax2, vmin=0, vmax=1, cbar_kws={"orientation": "horizontal"}, xticklabels=4, yticklabels=4)
     plt.show()
 
 
@@ -66,7 +66,12 @@ def cal_variance_estimate(data, grid_data):
 
     for i in range(len(data.index)):
         for j in range(len(grid_data.index)):
-            mean_predict = grid_data.at[j,'sensor_value']
+            #mean_predict = grid_data.at[j,'sensor_value']
+            nearest_x = data.at[i,'x']
+            nearest_y = data.at[i,'y'] + config.resolution
+            mean_predict = grid_data.loc[(grid_data.x == nearest_x) & (grid_data.y == nearest_y),'sensor_value'].tolist()[0]
+
+
             sens_reading = data.at[i,'sensor_value']
             measure_x = data.at[i,'x']
             measure_y = data.at[i,'y']
@@ -95,6 +100,7 @@ def cal_mean_variance(data):
     mean_variance = sum/(len(data.index)-1)
     return mean_variance
 
+
 # Update value of cell reading using extrapolate
 def update_cell(data, grid_data):
     grid_data['acc_weight'] = 0.0
@@ -110,7 +116,9 @@ def update_cell(data, grid_data):
             dis = cal_distance(measure_x, neighbor_x, measure_y, neighbor_y)
             weight = weight_cal(dis)
             grid_data.at[j,'acc_weight'] += weight
-            grid_data.at[j,'acc_weight_reading'] += data.at[i,'sensor_value']*weight
+            grid_data.at[j,'acc_weight_reading'] += data.at[i,'sensor_value']*weight   
+    
+    
     grid_data = confidence_map(grid_data)
     grid_data = cal_mean_estimate(grid_data, estimate_mean_sensor_val)
     grid_data = cal_variance_estimate(data, grid_data)
