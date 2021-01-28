@@ -98,4 +98,5 @@ if __name__ == "__main__":
     data_grid = insert_blank(new_data)
     mapping.update_cell(new_data, data_grid)
     mapping.plot_heat_map('output.csv')
+    # mapping.nlpd_test(new_data, data_grid)
     print("Done!!")

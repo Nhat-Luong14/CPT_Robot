@@ -10,8 +10,8 @@ import data_process
 # The readings were convolved using the two dimensional normalised Gaussian.
 # [Paper: Gas source localisation by constructing concentration gridmaps 
 # with a mobile robot] (equation 1)
-def weight_cal(distance):
-    sigma = config.sigma
+def weight_cal(distance, sigma):
+    sigma = sigma
     exp_term =  math.exp(-0.5*distance*distance/(sigma*sigma))
     weight = (0.5*exp_term)/(math.pi*sigma*sigma)
     return weight 
@@ -24,9 +24,9 @@ def cal_distance(x1,x2,y1,y2):
 
 
 # build the confidence map
-def confidence_map(data):
+def confidence_map(data, sigma):
     data['confidence'] = 0.0
-    scaling_param = weight_cal(0)
+    scaling_param = weight_cal(0, sigma)
     for i in range(len(data.index)):
         acc_weight = data.at[i,'acc_weight']
         exp_term = (acc_weight/scaling_param)**2
@@ -59,18 +59,17 @@ def cal_mean_estimate(grid_data, val):
     return grid_data
 
 
-def cal_variance_estimate(data, grid_data):
+def cal_variance_estimate(data, grid_data, sigma):
     grid_data['acc_variance'] = 0.0
     grid_data['variance'] = 0.0
     mean_val = cal_mean_variance(data)
 
     for i in range(len(data.index)):
         for j in range(len(grid_data.index)):
-            #mean_predict = grid_data.at[j,'sensor_value']
+            #r_hat = grid_data.at[j,'sensor_value']
             nearest_x = data.at[i,'x']
             nearest_y = data.at[i,'y'] + config.resolution
-            mean_predict = grid_data.loc[(grid_data.x == nearest_x) & (grid_data.y == nearest_y),'sensor_value'].tolist()[0]
-
+            r_hat = grid_data.loc[(grid_data.x == nearest_x) & (grid_data.y == nearest_y),'sensor_value'].tolist()[0]
 
             sens_reading = data.at[i,'sensor_value']
             measure_x = data.at[i,'x']
@@ -78,8 +77,8 @@ def cal_variance_estimate(data, grid_data):
             neighbor_x = grid_data.at[j,'x']
             neighbor_y = grid_data.at[j,'y']
             dis = cal_distance(measure_x, neighbor_x, measure_y, neighbor_y)
-            weight = weight_cal(dis)
-            grid_data.at[j,'acc_variance'] += weight*(sens_reading-mean_predict)**2
+            weight = weight_cal(dis, sigma)
+            grid_data.at[j,'acc_variance'] += weight*(sens_reading-r_hat)**2
 
     for i in range(len(grid_data.index)):
         confidence = grid_data.at[i,'confidence']
@@ -101,8 +100,51 @@ def cal_mean_variance(data):
     return mean_variance
 
 
+# Plot nlpd graph to get the smallest value of nlpd => best kernel width
+def nlpd_test(data, grid_data):
+    sigma_list = []
+    nlpd_val_list = []
+    for sigma in range(50,201,10):
+        sigma_list.append(sigma)
+        grid_data['acc_weight'] = 0.0
+        grid_data['acc_weight_reading'] = 0.0      
+        estimate_mean_sensor_val = data['sensor_value'].mean()  # Check again if it counts all cell or not?
+        # Adding accumulated weight and accumulated reading
+        for i in range(len(data.index)):
+            for j in range(len(grid_data.index)):
+                measure_x = data.at[i,'x']
+                measure_y = data.at[i,'y']
+                neighbor_x = grid_data.at[j,'x']
+                neighbor_y = grid_data.at[j,'y']
+                dis = cal_distance(measure_x, neighbor_x, measure_y, neighbor_y)
+                weight = weight_cal(dis, sigma)
+                grid_data.at[j,'acc_weight'] += weight
+                grid_data.at[j,'acc_weight_reading'] += data.at[i,'sensor_value']*weight   
+        grid_data = confidence_map(grid_data, sigma)
+        grid_data = cal_mean_estimate(grid_data, estimate_mean_sensor_val)
+        grid_data = cal_variance_estimate(data, grid_data, sigma)
+
+        sum = 0
+        for i in range(len(data.index)):
+            nearest_x = data.at[i,'x']
+            nearest_y = data.at[i,'y'] + config.resolution
+            v_hat = grid_data.loc[(grid_data.x == nearest_x) & (grid_data.y == nearest_y),'variance'].tolist()[0]
+            r_hat = grid_data.loc[(grid_data.x == nearest_x) & (grid_data.y == nearest_y),'sensor_value'].tolist()[0]
+            value = data.at[i,'sensor_value']
+
+            temp = ((value-r_hat)**2)/v_hat
+            sum += math.log(v_hat) + temp
+        nlpd_val = sum/(2*len(data.index)) + math.log(2*math.pi)
+        nlpd_val_list.append(nlpd_val)
+        print(nlpd_val, sigma)
+
+    df = pd.DataFrame({'NLPD': nlpd_val_list}, index=sigma_list)
+    lines = df.plot.line()
+    plt.show()
+
 # Update value of cell reading using extrapolate
 def update_cell(data, grid_data):
+    sigma = config.sigma
     grid_data['acc_weight'] = 0.0
     grid_data['acc_weight_reading'] = 0.0        
     estimate_mean_sensor_val = data['sensor_value'].mean()  # Check again if it counts all cell or not?
@@ -114,14 +156,12 @@ def update_cell(data, grid_data):
             neighbor_x = grid_data.at[j,'x']
             neighbor_y = grid_data.at[j,'y']
             dis = cal_distance(measure_x, neighbor_x, measure_y, neighbor_y)
-            weight = weight_cal(dis)
+            weight = weight_cal(dis, sigma)
             grid_data.at[j,'acc_weight'] += weight
             grid_data.at[j,'acc_weight_reading'] += data.at[i,'sensor_value']*weight   
-    
-    
-    grid_data = confidence_map(grid_data)
+    grid_data = confidence_map(grid_data, sigma)
     grid_data = cal_mean_estimate(grid_data, estimate_mean_sensor_val)
-    grid_data = cal_variance_estimate(data, grid_data)
+    grid_data = cal_variance_estimate(data, grid_data, sigma)
     grid_data = data_process.nomalize(grid_data, 'variance')
     grid_data = data_process.nomalize(grid_data, 'sensor_value')
     grid_data.to_csv('output.csv', index=False)
