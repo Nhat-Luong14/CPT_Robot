@@ -1,7 +1,8 @@
 import RPi.GPIO as GPIO #control motor board through GPIO pins
-import rospy
 import time
-from geometry_msgs.msg import Twist
+import socket
+import config
+import sys
 
 class Driver:
     def __init__(self):
@@ -24,6 +25,7 @@ class Driver:
         self.leftSpeed = 0
         self.rightSpeed1 = 0 
         self.leftSpeed1 = 0
+
 
     def gpio_init(self):
         #initialize GPIO pins, tell OS which pins will be used
@@ -58,6 +60,7 @@ class Driver:
         self.rightSpeed1.start(0)
         self.leftSpeed1.start(0)
 
+
     def gpio_clean(self):
         GPIO.cleanup()    
         GPIO.setup(self.ENA, GPIO.OUT)
@@ -65,100 +68,116 @@ class Driver:
         GPIO.output(self.ENA,True)
         GPIO.output(self.ENB,True)
 
+
     def rr_ahead(self, speed):
         GPIO.output(self.IN1Rear,True)
         GPIO.output(self.IN2Rear,False)
         self.rightSpeed.ChangeDutyCycle(speed)
+
 
     def rl_ahead(self, speed):  
         GPIO.output(self.IN3Rear,True)
         GPIO.output(self.IN4Rear,False)
         self.leftSpeed.ChangeDutyCycle(speed)
 
+
     def rr_back(self, speed):
         GPIO.output(self.IN2Rear,True)
         GPIO.output(self.IN1Rear,False)
         self.rightSpeed.ChangeDutyCycle(speed)
+
 
     def rl_back(self, speed):  
         GPIO.output(self.IN4Rear,True)
         GPIO.output(self.IN3Rear,False)
         self.leftSpeed.ChangeDutyCycle(speed)
 
+
     def fr_ahead(self, speed):
         GPIO.output(self.IN1Front,True)
         GPIO.output(self.IN2Front,False)
         self.rightSpeed1.ChangeDutyCycle(speed)
+
 
     def fl_ahead(self, speed):  
         GPIO.output(self.IN3Front,True)
         GPIO.output(self.IN4Front,False)
         self.leftSpeed1.ChangeDutyCycle(speed)
 
+
     def fr_back(self, speed):
         GPIO.output(self.IN2Front,True)
         GPIO.output(self.IN1Front,False)
         self.rightSpeed1.ChangeDutyCycle(speed)
  
+
     def fl_back(self, speed):  
         GPIO.output(self.IN4Front,True)
         GPIO.output(self.IN3Front,False)
         self.leftSpeed1.ChangeDutyCycle(speed)
+
 
     def go_ahead(self, speed):
         self.rl_ahead(speed)
         self.rr_ahead(speed)
         self.fl_ahead(speed)
         self.fr_ahead(speed)
-                
+
+
     def go_back(self, speed):
         self.rr_back(speed)
         self.rl_back(speed)
         self.fr_back(speed)
         self.fl_back(speed)
   
+
     def turn_right(self, speed):
         self.rl_ahead(speed)
         self.rr_back(speed)
         self.fl_ahead(speed)
         self.fr_back(speed)
         
-    #make left turn
+
     def turn_left(self, speed):
         self.rr_ahead(speed)
         self.rl_back(speed)
         self.fr_ahead(speed)
         self.fl_back(speed)
 
-    # parallel left shift 
+
     def shift_left(self, speed):
         self.fr_ahead(speed)
         self.rr_back(speed)
         self.rl_ahead(speed)
         self.fl_back(speed)
 
-    # parallel right shift 
+
     def shift_right(self, speed):
         self.fr_back(speed)
         self.rr_ahead(speed)
         self.rl_back(speed)
         self.fl_ahead(speed)
 
+
     def upper_right(self, speed):
         self.rr_ahead(speed)
         self.fl_ahead(speed)
 
+
     def lower_left(self, speed):
         self.rr_back(speed)
         self.fl_back(speed)
-        
+
+
     def upper_left(self, speed):
         self.fr_ahead(speed)
         self.rl_ahead(speed)
 
+
     def lower_right(self, speed):
         self.fr_back(speed)
         self.rl_back(speed)
+
 
     #make both motor stop
     def stop_car(self):
@@ -176,46 +195,52 @@ class Driver:
         self.rightSpeed1.ChangeDutyCycle(0)
         time.sleep(0.3)
 
-def callback(msg):
-    print("Moving delta_x: ")
-    print("Moving delta_y: ")
+def move(delta_x, delta_y):
+    print("Moving delta_x:", delta_x)
+    print("Moving delta_y:", delta_y)
 
-    x_vel = msg.linear.x
-    y_vel = msg.linear.y
-    angular_vel = msg.angular.z
-
-    if x_vel > 0 and y_vel == 0:
+    if delta_y > 0: 
         driver.go_ahead(50)
-    elif x_vel > 0 and y_vel > 0:
-        driver.upper_left(50)
-    elif x_vel > 0 and y_vel < 0:
-        driver.upper_right(50)
+        time.sleep(0.7)
+        driver.stop_car()
 
-    elif x_vel < 0 and y_vel == 0:
+    elif delta_y < 0:
         driver.go_back(50)
-    elif x_vel < 0 and y_vel < 0:
-        driver.lower_right(50)
-    elif x_vel < 0 and y_vel > 0:
-        driver.lower_left(50)
+        time.sleep(0.7)
+        driver.stop_car()
 
-    elif x_vel == 0 and y_vel > 0:
-        driver.shift_left(60)
-    elif x_vel == 0 and y_vel < 0:
-        driver.shift_right(60)
-    
-    if angular_vel > 0:
-        driver.turn_left(42)
-    elif angular_vel < 0: 
-        driver.turn_right(42)
+    if delta_x > 0: 
+        driver.shift_left(50)
+        time.sleep(0.7)
+        driver.stop_car()
+
+    elif delta_x < 0:
+        driver.shift_right(50)
+        time.sleep(0.7)
+        driver.stop_car()
  
-    time.sleep(0.7)
-    driver.stop_car()
-
+ 
 if __name__ == "__main__":   
     driver = Driver()
     driver.gpio_init()
-    try:
-        listener()
-    except Exception as e:
-        print(str(e))
-        driver.gpio_clean()
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.connect((config.server_ip, config.server_port))
+        while True:
+            data = str(s.recv(1024), 'utf-8')   # pythonからの信号受信
+            gas_reading = analogRead()
+            
+            if (data == 'searching'):
+                s.send(str(gas_reading).encode('utf-8'))    # Pythonへsensor値を送信
+
+            elif (data == 'stop'):
+                driver.stop_car()
+                sys.exit()
+
+            elif (data == ''):
+                pass
+
+            else:
+                delta_x = float(data.split(", ")[0])      # x移動量=横方向
+                delta_y = -1*float(data.split(", ")[1])   # y移動量=前進方向 
+                move(delta_x, delta_y)
+                s.send(str(gas_reading).encode('utf-8'))
