@@ -47,9 +47,6 @@ String p_string;
 float x, y, v1, v2, v3, v4;
 int kk, oo, pp, qq;
 
-
-
-
 /*motor control*/
 void go_advance(int speed) {
   RL_fwd(speed);
@@ -75,8 +72,6 @@ void left_shift(int speed_fl_bck, int speed_rl_fwd , int speed_rr_bck, int speed
   RR_bck(speed_rr_bck);
   FR_fwd(speed_fr_fwd);
 }
-
-
 
 void FR_fwd(int speed)  //front-right wheel forward turn
 {
@@ -163,7 +158,6 @@ void init_GPIO()
 void setup()
 {
   pinMode(13, OUTPUT);
-  //attention!! 〇Serial1. ×Serial
   Serial1.begin(115200);
   init_GPIO();
 
