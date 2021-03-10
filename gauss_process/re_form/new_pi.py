@@ -3,6 +3,12 @@ import time
 import socket
 import config
 import sys
+import time
+import busio
+import digitalio
+import board
+import adafruit_mcp3xxx.mcp3008 as MCP
+from adafruit_mcp3xxx.analog_in import AnalogIn
 
 class Driver:
     def __init__(self):
@@ -29,7 +35,7 @@ class Driver:
 
     def gpio_init(self):
         #initialize GPIO pins, tell OS which pins will be used
-        GPIO.setmode(GPIO.BOARD)
+        #GPIO.setmode(GPIO.BOARD)
         GPIO.setup(self.IN1Rear, GPIO.OUT) 
         GPIO.setup(self.IN2Rear, GPIO.OUT)
         GPIO.setup(self.IN3Rear, GPIO.OUT)
@@ -218,29 +224,45 @@ def move(delta_x, delta_y):
         driver.shift_right(50)
         time.sleep(0.7)
         driver.stop_car()
- 
+
+
+def sensing():
+    chan = AnalogIn(mcp, MCP.P0)
+    sensor_data = str(round(chan.voltage,2))
+    return sensor_data 
  
 if __name__ == "__main__":   
-    driver = Driver()
-    driver.gpio_init()
+    #driver = Driver()
+    #driver.gpio_init()
+    print("step 1")
+    # create the spi bus
+    spi = busio.SPI(clock=board.SCK, MISO=board.MISO, MOSI=board.MOSI)
+    # create the cs (chip select)
+    cs = digitalio.DigitalInOut(board.D25)
+    # create the mcp object
+    mcp = MCP.MCP3008(spi, cs, ref_voltage=5)
+    print("step2")
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        print("step3")
         s.connect((config.server_ip, config.server_port))
         while True:
             data = str(s.recv(1024), 'utf-8')   # pythonからの信号受信
-            gas_reading = analogRead()
-            
+            gas_reading = sensing()        
             if (data == 'searching'):
                 s.send(str(gas_reading).encode('utf-8'))    # Pythonへsensor値を送信
-
+ 
             elif (data == 'stop'):
-                driver.stop_car()
+    #            driver.stop_car()
                 sys.exit()
-
+    
             elif (data == ''):
+                print("vl")
                 pass
-
+    #
             else:
-                delta_x = float(data.split(", ")[0])      # x移動量=横方向
-                delta_y = -1*float(data.split(", ")[1])   # y移動量=前進方向 
-                move(delta_x, delta_y)
+                delta_x = float(data.split(",")[0])      # x移動量=横方向
+                delta_y = -1*float(data.split(",")[1])   # y移動量=前進方向 
+    #            # move(delta_x, delta_y)
+                print(delta_x, delta_y)
                 s.send(str(gas_reading).encode('utf-8'))
+
