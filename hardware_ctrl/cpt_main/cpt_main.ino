@@ -101,8 +101,8 @@ param stimuL : Binary output for left detection
 param stimuR : Binary output for right detection
 */
 void getStimuli(){
-  	int spikeL = 0;
-  	int stimuL = 0; // Sensor binary flags 
+    int spikeL = 0;
+    int stimuL = 0; // Sensor binary flags 
     // Take 5 samples of the ARX model output and update the spike counters
     for(int i=0; i<5; i++){
         if(ma_uL[i] > THRESHOLD){
@@ -113,7 +113,7 @@ void getStimuli(){
     if(spikeL > SP_THRESHOLD) {
         digitalWrite(LED_PIN, HIGH);
     }
-  	else {
+    else {
         digitalWrite(LED_PIN, LOW);
-  	}
+    }
 }
