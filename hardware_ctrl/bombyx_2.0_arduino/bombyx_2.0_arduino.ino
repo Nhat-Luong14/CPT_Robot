@@ -94,52 +94,56 @@ void setup() {
 }
 
 void loop() {
-	if (Serial.available() > 0) {
-		delay(1);   //delay to allow byte to arrive in input buffer
-		int cmd = Serial.read();
+	// if (Serial.available() > 0) {
+	// 	delay(1);   //delay to allow byte to arrive in input buffer
+	// 	int cmd = Serial.read();
 
-		// direction: 1=forward, -1=backward 
-		// speed: 0~255 
-		switch(cmd) { 
-			case '1':
-				// forward
-				set4wheel_dir(1,1,1,1);
-				set4wheel_spd(100,112,112,112);	
-				break;
-			case '2':
-				// backward
-				set4wheel_dir(-1,-1,-1,-1);
-				set4wheel_spd(90,102,102,102);
-				break;
-			case '3':
-				// left
-				set4wheel_dir(-1,1,1,-1);
-				set4wheel_spd(170,184,182,180);
-				break;
-			case '4':
-				// right
-				set4wheel_dir(1,-1,-1,1);
-				set4wheel_spd(177,186,186,180);
-				break;
-			default:
-				output1 = output2 = output3 = output4 = 0;
-				// getArxValues();
-				// getStimuli();
-   		}
-		motor_fl.set_speed(output1);
-		motor_fr.set_speed(output2);
-		motor_bl.set_speed(output3);
-		motor_br.set_speed(output4);
-		for (int i = 0; i++; i<10) {
-			getArxValues();
-			getStimuli(); 
-			delay(140);
-		}
-		stop();
-	}
-	else {
-		stop();
-	}
+	// 	// direction: 1=forward, -1=backward 
+	// 	// speed: 0~255 
+	// 	switch(cmd) { 
+	// 		case '1':
+	// 			// forward
+	// 			set4wheel_dir(1,1,1,1);
+	// 			set4wheel_spd(100,112,112,112);	
+	// 			break;
+	// 		case '2':
+	// 			// backward
+	// 			set4wheel_dir(-1,-1,-1,-1);
+	// 			set4wheel_spd(90,102,102,102);
+	// 			break;
+	// 		case '3':
+	// 			// left
+	// 			set4wheel_dir(-1,1,1,-1);
+	// 			set4wheel_spd(170,184,182,180);
+	// 			break;
+	// 		case '4':
+	// 			// right
+	// 			set4wheel_dir(1,-1,-1,1);
+	// 			set4wheel_spd(177,186,186,180);
+	// 			break;
+	// 		default:
+	// 			output1 = output2 = output3 = output4 = 0;
+	// 			// getArxValues();
+	// 			// getStimuli();
+   	// 	}
+	// 	motor_fl.set_speed(output1);
+	// 	motor_fr.set_speed(output2);
+	// 	motor_bl.set_speed(output3);
+	// 	motor_br.set_speed(output4);
+	// 	delay(1400);
+	// 	stop();
+	// 	for (int i = 0; i++; i<20) {
+	// 		getArxValues();
+	// 		getStimuli(); 
+	// 		delay(100);
+	// 	}
+	// }
+	// else {
+	// 	stop();
+	// }
+	getArxValues();
+	getStimuli(); 
+	delay(100);
 }
 
 // interrupt service routine - tick every 0.1sec
@@ -149,20 +153,10 @@ ISR(TIMER5_OVF_vect) {
 	out_speed2 = motor_fr.get_speed();
 	out_speed3 = motor_bl.get_speed();
 	out_speed4 = motor_br.get_speed();
-	// Serial.println(out_speed1);  
 }
 
-void update_enc1(){
-	motor_fl.update_count();}
 
-void update_enc2(){
-	motor_fr.update_count();}
 
-void update_enc3(){
-	motor_bl.update_count();}
-
-void update_enc4(){
-	motor_br.update_count();}
 
 /* Shift the array to the right for 1 unit step
 param num: size of the array
@@ -187,6 +181,7 @@ double cal_average(double* val_array, int num) {
     return sum/num;
 }
 
+
 /* 
 Compute ARX model output for the raw data of gas sensors
 param gasSensValL : Raw value of left sensor
@@ -204,6 +199,7 @@ void getArxValues() {
       	dyL[i] = (ma_yL[i] - ma_yL[i+1])/(TS*0.001);
     }
 
+	shift_array(uL, uNUM);
     uL[0] = -a1*uL[1] - a2*uL[2] + b0*dyL[0] + b1*dyL[1];
     shift_array(ma_uL, ma_uNUM);
     ma_uL[0] = cal_average(uL, uNUM);
@@ -229,11 +225,11 @@ void getStimuli(){
     // Update stimuli outputs and directions
     if(spikeL > SP_THRESHOLD) {
         digitalWrite(LED_PIN, HIGH);
-        delay(400);
     }
-    digitalWrite(LED_PIN, LOW);
+	else {
+    	digitalWrite(LED_PIN, LOW);
+  	}
 }
-
 
 /*
 Set rotating direction for each wheels. 1 is forward, -1 is backward 
@@ -268,17 +264,27 @@ void set4wheel_spd(int fl, int fr, int bl, int br) {
 	pid_br.Compute();
 }
 
-void test(){
-  	digitalWrite(LED_PIN, HIGH);
-	delay(500);
-    digitalWrite(LED_PIN, LOW);
-	delay(500);
-	Serial.print("OK");
-}
-
+/*
+Stop all the wheels by setting speed = 0
+*/
 void stop(){
 	motor_fl.set_speed(0);
 	motor_fr.set_speed(0);
 	motor_bl.set_speed(0);
 	motor_br.set_speed(0);
 }
+
+/*
+Pulse counting event called by the interupts
+*/
+void update_enc1(){
+	motor_fl.update_count();}
+
+void update_enc2(){
+	motor_fr.update_count();}
+
+void update_enc3(){
+	motor_bl.update_count();}
+
+void update_enc4(){
+	motor_br.update_count();}
