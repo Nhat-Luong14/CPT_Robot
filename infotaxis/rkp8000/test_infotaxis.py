@@ -326,3 +326,6 @@ def show_infotaxis_demo(
 
     # for ax in [ax_main] + list(axs.flatten()):
     #     set_font_size(ax, 14)
+
+show_infotaxis_demo()
+plt.show

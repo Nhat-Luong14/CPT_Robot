@@ -163,9 +163,6 @@ String get_cmd(){
 	return readString;
 }
 
-
-
-
 void update_enc1(){
 	motor_fl.update_count();}
 
