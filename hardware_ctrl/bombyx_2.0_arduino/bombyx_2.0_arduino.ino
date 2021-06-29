@@ -36,10 +36,10 @@ double ma_yL[ma_yNUM] = {0};  //Moving average gas sensing
 double ma_uL[ma_uNUM] = {0};
 
 //iG_ma 140113 c4 7 5, 高橋修論モデル
-const double A1 = -0.981;
-const double A2 = 0.01653;
-const double B0 = 0.2833;
-const double B1 = -0.2706;
+const double a1 = -0.981;
+const double a2 = 0.01653;
+const double b0 = 0.2833;
+const double b1 = -0.2706;
 
 //=========Pins and variables for motors control=================//
 int timer1_counter; //for timer
@@ -130,12 +130,16 @@ void loop() {
 		motor_fr.set_speed(output2);
 		motor_bl.set_speed(output3);
 		motor_br.set_speed(output4);
-		delay(1400);
+		for (int i = 0; i++; i<10) {
+			getArxValues();
+			getStimuli(); 
+			delay(140);
+		}
 		stop();
-		test();
 	}
-	// getArxValues();
-	// getStimuli(); 
+	else {
+		stop();
+	}
 }
 
 // interrupt service routine - tick every 0.1sec
@@ -170,9 +174,11 @@ void shift_array(double* val_array, int num) {
 }
 
 
-/* Calcualte the average of all value in the array
+/* 
+Calcualte the average of all value in the array
 param num: size of the array
-param val_array: array of value */
+param val_array: array of value 
+*/
 double cal_average(double* val_array, int num) {
     double sum = 0.0;
     for(int i = 0; i < num; i++) {
@@ -181,9 +187,11 @@ double cal_average(double* val_array, int num) {
     return sum/num;
 }
 
-/* Compute ARX model output for the raw data of gas sensors
-param gasSensValL Raw value of left sensor
-param gasSensValR Raw value of right sensor */
+/* 
+Compute ARX model output for the raw data of gas sensors
+param gasSensValL : Raw value of left sensor
+param gasSensValR : Raw value of right sensor 
+*/
 void getArxValues() {
     //Update moving average gas sensing
     shift_array(yL, yNUM);
@@ -196,7 +204,7 @@ void getArxValues() {
       	dyL[i] = (ma_yL[i] - ma_yL[i+1])/(TS*0.001);
     }
 
-    uL[0] = -A1*uL[1] - A2*uL[2] + B0*dyL[0] + B1*dyL[1];
+    uL[0] = -a1*uL[1] - a2*uL[2] + b0*dyL[0] + b1*dyL[1];
     shift_array(ma_uL, ma_uNUM);
     ma_uL[0] = cal_average(uL, uNUM);
 }
@@ -213,7 +221,7 @@ void getStimuli(){
   	int spikeL = 0;
   	int stimuL = 0; // Sensor binary flags 
     // Take 5 samples of the ARX model output and update the spike counters
-    for(int i=0; i<5; i++){
+    for(int i=0; i<ma_uNUM; i++){
         if(ma_uL[i] > THRESHOLD){
             spikeL++;
         }
