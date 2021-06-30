@@ -16,9 +16,9 @@ class IdealInfotaxisPlume(object):
         xs_src = np.array([self.src_pos[0]])
         ys_src = np.array([self.src_pos[1]])
 
-        hit_rate = get_hit_rate(xs_src=xs_src, ys_src=ys_src, pos=pos)[0, 0]
+        hit_rate = get_hit_rate(xs_src, ys_src, pos=pos)[0, 0]
 
-        mean_hits = hit_rate * self.dt
+        mean_hits = hit_rate * config.dt
         sample = int(np.random.poisson(mean_hits) > 0)
         return sample
 
