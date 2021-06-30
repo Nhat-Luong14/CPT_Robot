@@ -94,56 +94,48 @@ void setup() {
 }
 
 void loop() {
-	// if (Serial.available() > 0) {
-	// 	delay(1);   //delay to allow byte to arrive in input buffer
-	// 	int cmd = Serial.read();
-
-	// 	// direction: 1=forward, -1=backward 
-	// 	// speed: 0~255 
-	// 	switch(cmd) { 
-	// 		case '1':
-	// 			// forward
-	// 			set4wheel_dir(1,1,1,1);
-	// 			set4wheel_spd(100,112,112,112);	
-	// 			break;
-	// 		case '2':
-	// 			// backward
-	// 			set4wheel_dir(-1,-1,-1,-1);
-	// 			set4wheel_spd(90,102,102,102);
-	// 			break;
-	// 		case '3':
-	// 			// left
-	// 			set4wheel_dir(-1,1,1,-1);
-	// 			set4wheel_spd(170,184,182,180);
-	// 			break;
-	// 		case '4':
-	// 			// right
-	// 			set4wheel_dir(1,-1,-1,1);
-	// 			set4wheel_spd(177,186,186,180);
-	// 			break;
-	// 		default:
-	// 			output1 = output2 = output3 = output4 = 0;
-	// 			// getArxValues();
-	// 			// getStimuli();
-   	// 	}
-	// 	motor_fl.set_speed(output1);
-	// 	motor_fr.set_speed(output2);
-	// 	motor_bl.set_speed(output3);
-	// 	motor_br.set_speed(output4);
-	// 	delay(1400);
-	// 	stop();
-	// 	for (int i = 0; i++; i<20) {
-	// 		getArxValues();
-	// 		getStimuli(); 
-	// 		delay(100);
-	// 	}
-	// }
-	// else {
-	// 	stop();
-	// }
 	getArxValues();
 	getStimuli(); 
 	delay(100);
+	if (Serial.available() > 0) {
+		delay(1);   //delay to allow byte to arrive in input buffer
+		int cmd = Serial.read();
+
+		// direction: 1=forward, -1=backward 
+		// speed: 0~255 
+		switch(cmd) { 
+			case '1':
+				// forward
+				set4wheel_dir(1,1,1,1);
+				set4wheel_spd(100,112,112,112);	
+				break;
+			case '2':
+				// backward
+				set4wheel_dir(-1,-1,-1,-1);
+				set4wheel_spd(90,102,102,102);
+				break;
+			case '3':
+				// left
+				set4wheel_dir(-1,1,1,-1);
+				set4wheel_spd(170,184,182,180);
+				break;
+			case '4':
+				// right
+				set4wheel_dir(1,-1,-1,1);
+				set4wheel_spd(177,186,186,180);
+				break;
+			default:
+				output1 = output2 = output3 = output4 = 0;
+				// getArxValues();
+				// getStimuli();
+   		}
+		motor_fl.set_speed(output1);
+		motor_fr.set_speed(output2);
+		motor_bl.set_speed(output3);
+		motor_br.set_speed(output4);
+		delay(1400);
+		stop();
+	}
 }
 
 // interrupt service routine - tick every 0.1sec
@@ -155,18 +147,16 @@ ISR(TIMER5_OVF_vect) {
 	out_speed4 = motor_br.get_speed();
 }
 
-
-
-
-/* Shift the array to the right for 1 unit step
+/* 
+Shift the array to the right for 1 unit step
 param num: size of the array
-param val_array: array of value */
+param val_array: array of value 
+*/
 void shift_array(double* val_array, int num) {
     for(int i = num-2; i >= 0; i--) {
         val_array[i+1] = val_array[i];
     }
 }
-
 
 /* 
 Calcualte the average of all value in the array
@@ -239,7 +229,6 @@ param bl : Back left wheel
 param br : Back right wheel
 */
 void set4wheel_dir(int fl, int fr, int bl, int br) {
-	
 	motor_fl.set_direction(fl);  
 	motor_fr.set_direction(fr);
 	motor_bl.set_direction(bl);
