@@ -38,21 +38,6 @@ def nomalize(data, column_name):
     return data
 
 
-# Convert string to array of float (sensor readings)
-# Get average from a list of float numbers
-def get_avarage(sensor_readings):    
-    list_val = str2list_float(sensor_readings)
-    average_val = sum(list_val)/len(list_val)
-    return average_val
-
-
-# Convert a string in th form "['0','1']" into a list of float
-def str2list_float(str_val):
-    new_str = str_val.replace('\'', '').replace('[', '').replace(']', '')
-    list_val = [float(idx) for idx in new_str.split(', ')]
-    return list_val
-
-
 # To check whether a place in a blank map has measurement value
 def check_exist(x,y,data):
     for i in range(len(data.index)):
@@ -78,9 +63,6 @@ def insert_blank(data):
 
 # Do convert string to list of float, average, normalize, rounding
 def data_makeup(data):
-    for i in range(len(data.index)):
-        sensor_val_str = data.at[i,'sensor_value']
-        data.at[i,'sensor_value'] = get_avarage(sensor_val_str)
     data = nomalize(data, 'sensor_value')
     data = rounding(data)
     return data
@@ -96,7 +78,7 @@ if __name__ == "__main__":
     data = pd.read_csv(csv_name) 
     new_data = data_makeup(data)
     data_grid = insert_blank(new_data)
-    mapping.update_cell(new_data, data_grid)
+    mapping.update_cell(new_data, data_grid)      
     mapping.plot_heat_map('output.csv')
     # mapping.nlpd_test(new_data, data_grid)
     print("Done!!")
