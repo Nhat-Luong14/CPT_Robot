@@ -12,7 +12,7 @@
 
 //=========Pins and variables for gas detection=================//
 #define GSL_PIN A0    // Gas Sensor Left
-#define LED_PIN A15   // LED Indicator
+#define LED_PIN 45   // LED Indicator
 #define TC 100      // 100 ms timestep
 #define SAMP_NUM 5  // Number of sampling cycles during TC
 #define TS TC/SAMP_NUM  // Sampling frequency 20ms
@@ -135,6 +135,12 @@ void loop() {
 		motor_br.set_speed(output4);
 		delay(1400);
 		stop();
+		// for (int i=0; i<10; i++){
+		// 	getArxValues();
+		// 	getStimuli(); 
+		// 	delay(200);
+		// }
+		Serial.println("next");
 	}
 }
 
@@ -215,9 +221,11 @@ void getStimuli(){
     // Update stimuli outputs and directions
     if(spikeL > SP_THRESHOLD) {
         digitalWrite(LED_PIN, HIGH);
+		Serial.println("h");
     }
 	else {
     	digitalWrite(LED_PIN, LOW);
+		Serial.println("m");
   	}
 }
 
