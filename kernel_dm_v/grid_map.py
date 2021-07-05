@@ -19,10 +19,10 @@ import numpy as np
 class Gridmap:       
     # The init method or constructor
     def __init__(self, x_min, x_max, y_min, y_max):
-        self._x_min = x_min            
-        self._x_max = x_max 
-        self._y_min = y_min 
-        self._y_max = y_max 
+        self._x_min = x_min - config.extend               
+        self._x_max = x_max + config.extend
+        self._y_min = y_min - config.extend
+        self._y_max = y_max + config.extend
         self._res = config.resolution
 
         self._n_cells_x = int((x_max - x_min)/self._res) + 1

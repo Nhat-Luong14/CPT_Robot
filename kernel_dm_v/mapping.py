@@ -14,7 +14,6 @@ __maintainer__  = "Luong Duc Nhat"
 __email__       = "luong.d.aa@m.titech.ac.jp"
 __status__      = "Production"
 
-import math
 import matplotlib.pyplot as plt
 import numpy as np
 from grid_map import Gridmap
@@ -26,7 +25,7 @@ Param data: Input data extract from csv file
 def get_plain_map(data):
     column_x = data['x']
     column_y = data['y']
-    x_min = column_x.min()
+    x_min = column_x.min() 
     x_max = column_x.max()
     y_min = column_y.min()
     y_max = column_y.max()
