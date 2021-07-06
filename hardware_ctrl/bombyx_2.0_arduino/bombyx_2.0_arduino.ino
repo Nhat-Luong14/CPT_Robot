@@ -120,6 +120,8 @@ void loop() {
 
 	if (Serial.available() > 0) {
 		delay(1);   //delay to allow byte to arrive in input buffer
+		digitalWrite(LED_PIN, LOW);	//Don't detect gas during movement
+
 		int cmd = Serial.read();
 
 		// direction: 1=forward, -1=backward 
@@ -156,8 +158,10 @@ void loop() {
 
 		stop();
 		Serial.println("next");	// Tell server the robot comleted a move
+		delay(500);	// Stop compltely before detecting gas
 	}
 }
+
 
 /* 
 interrupt service routine - tick every 0.1sec
