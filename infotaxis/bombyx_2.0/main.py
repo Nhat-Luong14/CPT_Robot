@@ -1,3 +1,20 @@
+#!/usr/bin/env python3
+
+#================================================================================
+# This program use the infotaxis algorithm to plan the motion of the chemical
+# plume tracing robot. The next move is deciced to gain the maximum infomation gain
+#================================================================================
+
+__author__      = "Luong Duc Nhat"
+__copyright__   = "Copyright 2021, The Chemical Plume Tracing (CPT) Robot Project"
+__credits__     = ["Luong Duc Nhat"]
+__license__     = "GPL"
+__version__     = "1.0.0"
+__maintainer__  = "Luong Duc Nhat"
+__email__       = "luong.d.aa@m.titech.ac.jp"
+__status__      = "Production"
+
+
 import config
 import numpy as np
 from copy import copy
@@ -7,6 +24,11 @@ from utilities import build_log_src_prior, update_log_p_src
 from utilities import entropy, get_moves, get_p_src_found, get_p_sample
 from plume_processing import IdealInfotaxisPlume
 
+
+"""
+First create a piori distributiton map of gas source existance.
+Keep updating using gas detection to get the posterior distribution.
+"""
 if __name__ == "__main__":
     xs = np.linspace(config.x_bounds[0], config.x_bounds[1], config.grid[0])
     ys = np.linspace(config.y_bounds[0], config.y_bounds[1], config.grid[1])    
@@ -16,7 +38,7 @@ if __name__ == "__main__":
     
     pos = config.start_pos
     traj = [copy(pos)]  # position sequence
-    hs = []  # hit sequence
+    hs = []             # hit sequence
 
     
     np.random.seed(config.seed)
