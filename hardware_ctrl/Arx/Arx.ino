@@ -1,16 +1,27 @@
-//------------------------------------------------------------------
-// This code peform ethanol hit detection using ARX model
-// This code is written and modified by Luong Duc Nhat form the CPT Drone 
-// project of Cesar Hernandez-Reyes 
-//
-// Japan, Tokyo Institute of Technology, 2021 June.
-// 
-// Please referred authors if you reused the code.
-//------------------------------------------------------------------
+/**
+ * @file bombyx_2.0_arduino.ino
+ *
+ * @brief This code detects gas existance using ARX model. 
+ *
+ * @author Luong Duc Nhat
+ * Contact: js@lsst.org
+ *
+ * @author Luong Duc Nhat
+ * Contact: luong.d.aa@m.titech.ac.jp
+ * 
+ * @copyright Copyright 2021, The Chemical Plume Tracing (CPT) Robot Project"
+ * credits ["Luong Duc Nhat", "Cesar Hernandez-Reyes"]
+ * license GPL
+ * 
+ * @version    = "2.0.0"
+ * maintainer  = "Luong Duc Nhat"
+ * status      = "Production"
+ */
+
 #define GSL_PIN  A0   // Gas Sensor Left
-#define GSR_PIN  A1   // Gas Sensor Right
-#define LED_L  11     // LED Indicator Left
-#define LED_R  12     // LED Indicator Right
+// #define GSR_PIN  A1   // Gas Sensor Right
+#define LED_L  12        // LED Indicator Left
+// #define LED_R  12     // LED Indicator Right
 
 #define TC 100          // 100 ms timestep
 #define SAMP_NUM 5      // Number of sampling cycles during TC
@@ -28,11 +39,17 @@
 #define ma_uNUM 5
 
 // Global variables for ARX computations
-double yL[yNUM] = {0}, yR[yNUM] = {0};  //Sensor value history
-double uL[uNUM] = {0}, uR[uNUM] = {0};
-double dyL[dyNUM] = {0}, dyR[dyNUM] = {0};
-double ma_yL[ma_yNUM] = {0}, ma_yR[ma_yNUM] = {0};  //Moving average gas sensing
-double ma_uL[ma_uNUM] = {0}, ma_uR[ma_uNUM] = {0};
+double yL[yNUM] = {0};  //Sensor value history
+double uL[uNUM] = {0};
+double dyL[dyNUM] = {0};
+double ma_yL[ma_yNUM] = {0};  //Moving average gas sensing
+double ma_uL[ma_uNUM] = {0};
+
+// double yR[yNUM] = {0};   
+// double uR[uNUM] = {0};
+// double dyR[dyNUM] = {0};
+// double ma_yR[ma_yNUM] = {0};  
+// double ma_uR[ma_uNUM] = {0};
 
 //iG_ma 140113 c4 7 5, 高橋修論モデル
 double a1 = -0.981;
@@ -42,9 +59,10 @@ double b1 = -0.2706;
   
 void setup() {
     // put your setup code here, to run once:
-  pinMode(LED_L, OUTPUT);
-  pinMode(LED_R, OUTPUT);
-    Serial.begin(9600);
+    pinMode(LED_L, OUTPUT);
+	  digitalWrite(LED_L, LOW);
+    // pinMode(LED_R, OUTPUT);
+    Serial.begin(115200);
 }
 
 void loop() {
@@ -75,40 +93,40 @@ double cal_average(double* val_array, int num) {
     return sum/num;
 }
 
+
 /* Compute ARX model output for the raw data of gas sensors
 param gasSensValL Raw value of left sensor
 param gasSensValR Raw value of right sensor */
 void getArxValues() {
     //Update moving average gas sensing
     shift_array(yL, yNUM);
-    shift_array(yR, yNUM);
+    // shift_array(yR, yNUM);
 
-    yL[0] = analogRead(GSL_PIN) * (5.0/1023.0); //voltage
-    yR[0] = analogRead(GSR_PIN) * (5.0/1023.0); 
+    yL[0] = analogRead(GSL_PIN) * (5.0/1023.0); // Convert sensor reading value to voltage
+    // yR[0] = analogRead(GSR_PIN) * (5.0/1023.0); 
 
   	shift_array(ma_yL, ma_yNUM);
-  	shift_array(ma_yR, ma_yNUM);
+  	// shift_array(ma_yR, ma_yNUM);
     
     ma_yL[0] = cal_average(yL, yNUM);
-    ma_yR[0] = cal_average(yR, yNUM);
+    // ma_yR[0] = cal_average(yR, yNUM);
 
     for(int i = ma_yNUM-2; i >= 0; i--){
       dyL[i] = (ma_yL[i] - ma_yL[i+1])/(TS*0.001);
-      dyR[i] = (ma_yR[i] - ma_yR[i+1])/(TS*0.001);
+    //   dyR[i] = (ma_yR[i] - ma_yR[i+1])/(TS*0.001);
     }
 
   	shift_array(uL, uNUM);
-  	shift_array(uR, uNUM);
+  	// shift_array(uR, uNUM);
 
-    //モデル通す
-    uL[0] = -a1*uL[1] - a2*uL[2] + b0*dyL[0] + b1*dyL[1];
-    uR[0] = -a1*uR[1] - a2*uR[2] + b0*dyR[0] + b1*dyR[1];
+    uL[0] = -a1*uL[1] - a2*uL[2] + b0*dyL[0] + b1*dyL[1]; // ARX equation
+    // uR[0] = -a1*uR[1] - a2*uR[2] + b0*dyR[0] + b1*dyR[1];
 
   	shift_array(ma_uL, ma_uNUM);
-  	shift_array(ma_uR, ma_uNUM);
+  	// shift_array(ma_uR, ma_uNUM);
 
     ma_uL[0] = cal_average(uL, uNUM);
-    ma_uR[0] = cal_average(uR, uNUM);
+    // ma_uR[0] = cal_average(uR, uNUM);
 }
 
 
@@ -120,30 +138,32 @@ param stimuL : Binary output for left detection
 param stimuR : Binary output for right detection
 */
 void getStimuli(){
-  int spikeL = 0;
-  int spikeR = 0;
-  int stimuL = 0; // Sensor binary flags 
-  int stimuR = 0;
-    // Take 5 samples of the ARX model output and update the spike counters
+    int spikeL = 0;
+//   int spikeR = 0;
+    int stimuL = 0; // Sensor binary flags 
+//   int stimuR = 0;
+    // Take few samples of the ARX model output and update the spike counters
     for(int i=0; i<5; i++){
         if(ma_uL[i] > THRESHOLD){
             spikeL++;
         }
-        if(ma_uR[i] > THRESHOLD){
-            spikeR++;
-        }
+        // if(ma_uR[i] > THRESHOLD){
+        //     spikeR++;
+        // }
     }
-    // Update stimuli outputs and directions
+    // Update stimuli outputs and directions then feedback to the server
     if(spikeL > SP_THRESHOLD){
         digitalWrite(LED_L, HIGH);
+		    Serial.println("h");
     }
   	else {
-    	digitalWrite(LED_L, LOW);
+    	  digitalWrite(LED_L, LOW);
+        Serial.println("m");
   	}
-    if(spikeR > SP_THRESHOLD){
-        digitalWrite(LED_R, HIGH);
-    }
-  	else {
-    	digitalWrite(LED_R, LOW);
-  	}
+    // if(spikeR > SP_THRESHOLD){
+    //     digitalWrite(LED_R, HIGH);
+    // }
+  	// else {
+    // 	digitalWrite(LED_R, LOW);
+  	// }
 }

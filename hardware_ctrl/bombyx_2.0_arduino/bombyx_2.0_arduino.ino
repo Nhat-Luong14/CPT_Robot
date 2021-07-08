@@ -1,9 +1,8 @@
 /**
  * @file bombyx_2.0_arduino.ino
  *
- * @brief This code is used to upload to Arduino Mega for controlling robot's 
- * motors and detecting gas existance using ARX model. 
- * The signal is transfer back and forth to a Raspberry Pi 
+ * @brief This code is used to upload to Arduino Mega for moving the robot 
+ * following command from a Rasperry Pi.
  *
  * @author Luong Duc Nhat
  * Contact: js@lsst.org
@@ -12,7 +11,7 @@
  * Contact: luong.d.aa@m.titech.ac.jp
  * 
  * @copyright Copyright 2021, The Chemical Plume Tracing (CPT) Robot Project"
- * credits ["Luong Duc Nhat", "Cesar Hernandez-Reyes"]
+ * credits ["Luong Duc Nhat"]
  * license GPL
  * 
  * @version    = "1.0.0"
@@ -22,36 +21,6 @@
 
 #include <PID_v1.h>
 #include <Motor.h>
-
-//============= Pins and parameters for gas detection ====================//
-#define GSL_PIN A0    		// Gas Sensor Left
-#define LED_PIN 45   		// LED Indicator
-#define TC 100      		// 100 ms timestep
-#define SAMP_NUM 5  		// Number of sampling cycles during TC
-#define TS TC/SAMP_NUM  	// Sampling frequency 20ms
-
-#define THRESHOLD 0.04		// Thresholds to set the sensitive of ARX
-#define SP_THRESHOLD 0 		
-
-//=============== Sizes of average movement parameter arrays =============//
-#define yNUM 7
-#define ma_yNUM 3
-#define dyNUM 2
-#define uNUM 7
-#define ma_uNUM 5
-
-//================= Global variables for ARX computations ================//
-double yL[yNUM] 		= {0};  // Sensor value history
-double uL[uNUM] 		= {0};
-double dyL[dyNUM] 		= {0};	// Rate of change of the sensor value
-double ma_yL[ma_yNUM] 	= {0};  // Moving average gas sensing
-double ma_uL[ma_uNUM] 	= {0};
-
-//======= Constants for ARX model from Yosuke Takahashi's research =======//
-const double a1 = -0.981;
-const double a2 = 0.01653;
-const double b0 = 0.2833;
-const double b1 = -0.2706;
 
 //=========== Pins and variables for motors control using PID ============//
 //param: enc_pin, fwd_pin, bwd_pin, pwm_pin, kp, ki, kd
@@ -73,8 +42,11 @@ PID pid_br(&out_speed4, &output4, &set_speed4, motor_br.get_kp(), motor_br.get_k
 int timer1_counter; 
 
 
+/* 
+Setup pins and interrupts.
+Initialize parameters for PID controllers of each motors
+*/
 void setup() {  
-	pinMode(LED_PIN, OUTPUT);
 	attachInterrupt(digitalPinToInterrupt(motor_fl.get_enc_pin()), update_enc1, RISING);
 	attachInterrupt(digitalPinToInterrupt(motor_fr.get_enc_pin()), update_enc2, RISING);
 	attachInterrupt(digitalPinToInterrupt(motor_bl.get_enc_pin()), update_enc3, RISING);
@@ -107,20 +79,15 @@ void setup() {
 	Serial.begin(115200);
 }
 
+
 /*
-Main loop. For each loop, the arduino will detect if the is any gas particles hit into
-the sensor using ARX model. During the loop, the arduino will wait for the raspbery to send 
+Main loop. During the loop, the arduino will wait for the raspbery to send 
 a moving command. The arduino then will control the motors to move in fixed step size and
 feedback to the raspberry pi.
 */
 void loop() {
-	getArxValues();		// Updating values of ARX arrays using moving average
-	getStimuli(); 		// Decide detection is a hit or miss base on ARX arrays
-	delay(100);
-
 	if (Serial.available() > 0) {
 		delay(1);   //delay to allow byte to arrive in input buffer
-		digitalWrite(LED_PIN, LOW);	//Don't detect gas during movement
 
 		int cmd = Serial.read();
 
@@ -154,11 +121,10 @@ void loop() {
 		motor_fr.set_speed(output2);
 		motor_bl.set_speed(output3);
 		motor_br.set_speed(output4);
-		delay(1400);	// No gas detecting during robot's movement
-
+		delay(1400);	// Stepsize depends on this and set_speed
 		stop();
-		Serial.println("next");	// Tell server the robot comleted a move
-		delay(500);	// Stop compltely before detecting gas
+		delay(1000);		// Stop compltely for detecting gas
+		Serial.println("stopped");	// Tell server the robot comleted a move
 	}
 }
 
@@ -197,53 +163,6 @@ double cal_average(double* val_array, int num){
         sum += val_array[i];
     }
     return sum/num;
-}
-
-
-/* 
-Compute ARX model output based on the raw data of gas sensors
-*/
-void getArxValues(){
-    shift_array(yL, yNUM);
-    yL[0] = analogRead(GSL_PIN) * (5.0/1023.0); // Convert sensor reading value to voltage
-
-    shift_array(ma_yL, ma_yNUM);
-    ma_yL[0] = cal_average(yL, yNUM);
-
-    for(int i = ma_yNUM-2; i >= 0; i--) {
-      	dyL[i] = (ma_yL[i] - ma_yL[i+1])/(TS*0.001);
-    }
-
-	shift_array(uL, uNUM);
-    uL[0] = -a1*uL[1] - a2*uL[2] + b0*dyL[0] + b1*dyL[1];	// ARX equation
-    
-	shift_array(ma_uL, ma_uNUM);
-    ma_uL[0] = cal_average(uL, uNUM);
-}
-
-
-/*
-Get a binary output to indicate if there was a detection in either sensor (for MothT) or in general (for InfoT)
-*/
-void getStimuli(){
-  	int spike = 0;		// Spikes counter
-
-    // Take few samples of the ARX model output and update the spike counters
-    for(int i=0; i<ma_uNUM; i++) {
-        if(ma_uL[i] > THRESHOLD) {
-            spike++;
-        }
-    }
-
-    // Decide hit or miss and feedback to the server
-    if(spike > SP_THRESHOLD) {
-        digitalWrite(LED_PIN, HIGH);
-		Serial.println("h");
-    }
-	else {
-    	digitalWrite(LED_PIN, LOW);
-		Serial.println("m");
-  	}
 }
 
 
@@ -290,6 +209,7 @@ void stop(){
 	motor_bl.set_speed(0);
 	motor_br.set_speed(0);
 }
+
 
 /*
 Pulse counting event called by the interupts
