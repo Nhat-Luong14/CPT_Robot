@@ -1,3 +1,22 @@
+#!/usr/bin/env python3
+
+#====================================================================================
+# This program use the infotaxis algorithm to plan the motion of the chemical
+# plume tracing robot. The next move is deciced to gain the maximum infomation gain
+#
+# The code is built based on Rich Pang's project: 
+# https://github.com/rkp8000/infotaxis
+#====================================================================================
+
+__author__      = "Luong Duc Nhat"
+__copyright__   = "Copyright 2021, The Chemical Plume Tracing (CPT) Robot Project"
+__credits__     = ["Luong Duc Nhat"]
+__license__     = "GPL"
+__version__     = "1.0.0"
+__maintainer__  = "Luong Duc Nhat"
+__email__       = "luong.d.aa@m.titech.ac.jp"
+__status__      = "Production"
+
 import config
 import numpy as np
 from copy import copy
@@ -142,7 +161,7 @@ Get the 5 possible moves from a position given a constant speed.
 """
 def get_moves(pos, step):    
     moves = []
-    for dx, dy in [(-step, 0), (step, 0), (0, -step), (0, step), (0, 0)]:
+    for dx, dy in [(0, 0),(step, 0), (-step, 0), (0, -step), (0, step)]:
         x = pos[0] + dx
         y = pos[1] + dy
         moves.append((x, y))

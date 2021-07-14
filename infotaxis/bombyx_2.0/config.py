@@ -24,7 +24,7 @@ grid        = (21, 11)
 x_bounds    = [-2.0, 2.0]
 y_bounds    = [0, 4]
 
-max_dur     = 120 #secound
+max_dur     = 20 #secound
 dt          = 1   #second
 wind        = 0.5 #m/s
 p_lifetime  = 1000 #second
