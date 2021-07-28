@@ -5,7 +5,7 @@ from infotaxis import get_hit_rate
 import numpy as np
 
 
-class IdealInfotaxisPlume(object):
+class IdealPlume(object):
     def __init__(self, src_pos, w, d, r, a, tau, dt):
         self.src_pos = np.array(src_pos)
         self.w = w

@@ -7,6 +7,7 @@ from copy import copy
 import numpy as np
 from scipy.special import k0
 from scipy.stats import entropy as entropy_
+from obstacle import is_collision
 
 #ok
 def entropy(log_p_src):
@@ -50,6 +51,7 @@ def log_k0(x):
         else:
             return np.log(y)
 
+
 """
 Construct a log-probability distribution from a prior type specifier.
 Units are probability per area. (Not cell area but map area)    
@@ -68,18 +70,15 @@ def build_log_src_prior(prior_type, xs, ys):
         raise NotImplementedError
     return log_src_prior                                            # log(1/area) unnormalized
 
-#ok
+
+"""
+Get the possible moves from a position given a constant speed.
+:param pos:
+:param xs:
+:param ys:
+:param step:
+"""
 def get_moves(pos, xs, ys, step):
-    from obstacle import is_collision
-    """
-    Get the 5 possible moves from a position given a constant speed.
-    (left, right, forward, back, stay still)
-    :param pos:
-    :param xs:
-    :param ys:
-    :param step:
-    :return:
-    """
     moves = []
     for dx, dy in [(-step, 0), (step, 0), (0, -step), (0, step), (0, 0)]:
         x = pos[0] + dx
@@ -88,18 +87,16 @@ def get_moves(pos, xs, ys, step):
             moves.append((x, y))
     return moves
 
-# ok
+
+"""
+Return the probability that a position is within source radius
+:param pos: position to calc prob that you are close to source
+:param xs: x-coords over which source prob distribution is defined
+:param ys: y-coords over which source prob distribution is defined
+:param log_p_src: log probability distribution over source position
+"""
 def get_p_src_found(pos, xs, ys, log_p_src, radius):
-    """
-    Return the probability that a position is within "radius"
-    of the source, given the source probability distribution.
-    :param pos: position to calc prob that you are close to source
-    :param xs: x-coords over which source prob distribution is defined
-    :param ys: y-coords over which source prob distribution is defined
-    :param log_p_src: log probability distribution over source position
-    :param radius: distance you must be to source to detect it
-    :return: probability
-    """
+    
     # get mask containing only points within radius of pos
     xs_, ys_ = np.meshgrid(xs, ys, indexing='ij')               #coordination matrix x,y of cells
     dxs = pos[0] - xs_                                          #distance to x,y matrix of cells to point
@@ -114,15 +111,14 @@ def get_p_src_found(pos, xs, ys, log_p_src, radius):
 
     return p_src_found
 
-#ok 
+
+"""
+Return the turbulence length constant
+:param d: diffusivity coefficient (m^2/s)
+:param w: wind speed (m/s)
+:param tau: particle lifetime (s)
+"""
 def get_length_constant(w, d, tau):
-    """
-    Return the turbulence length constant: sqrt( (d*tau) / (1 + (tau * w**2)/(4d) ) )
-    :param d: diffusivity coefficient (m^2/s)
-    :param w: wind speed (m/s)
-    :param tau: particle lifetime (s)
-    :return: length constant (m)
-    """
     num = d * tau
     denom = 1 + (tau * w**2) / (4 * d)
     return np.sqrt(num / denom)
@@ -248,29 +244,26 @@ def update_log_p_src(pos, xs, ys, dt, h, w, d, r, a, tau, src_radius, log_p_src)
     return log_p_src
 
 
-def simulate(
-        plume, grid, start_pos, speed, dt, max_dur,
-        th, src_radius, w, d, r, a=0.003, tau=100, return_log_p_srcs=False):
-    """
-    Run the infotaxis simulation.
-    :param plume: plume object
-    :param grid: number of (x, y) points in grid spanning plume environment
-        to run infotaxis agent along
-    :param start_pos: insect starting position (m)
-    :param speed: insect movement speed (m/s)
-    :param dt: simulation time step (s)
-    :param max_dur: maximum simulation duration (s)
-    :param th: threshold for hit detection
-    :param src_radius: how close agent must be to source to detect it (m)
-    :param w: wind speed (m/s)
-    :param d: diffusivity coefficient (m^2/s)
-    :param r: source emission rate (Hz)
-    :param a: searcher size (m)
-    :param tau: particle lifetime (s)
-    :param return_log_p_srcs: whether to return a list of the source posteriors
-        calculated along the trajectory
-    :return: trajectory, hit array, src_found flag, [list of source posteriors]
-    """
+"""
+Run the infotaxis simulation.
+:param plume: plume object
+:param grid: number of (x, y) points in grid spanning plume environment
+:param start_pos: insect starting position (m)
+:param speed: insect movement speed (m/s)
+:param dt: simulation time step (s)
+:param max_dur: maximum simulation duration (s)
+:param th: threshold for hit detection
+:param src_radius: how close agent must be to source to detect it (m)
+:param w: wind speed (m/s)
+:param d: diffusivity coefficient (m^2/s)
+:param r: source emission rate (Hz)
+:param a: searcher size (m)
+:param tau: particle lifetime (s)
+:return: trajectory, hit array, src_found flag, [list of source posteriors]
+"""
+def simulate(plume, grid, start_pos, speed, dt, max_dur,
+    th, src_radius, w, d, r, a=0.003, tau=100):
+    
     if get_length_constant(w=w, d=d, tau=tau) <= a:
         raise Exception('lambda must be greater than a')      #Why??
 
@@ -310,7 +303,7 @@ def simulate(
         s = entropy(log_p_src)
 
         ss.append(s)
-        if return_log_p_srcs: log_p_srcs.append(log_p_src)
+        log_p_srcs.append(log_p_src)
 
         # pick next move so as to maximally decrease expected entropy
         moves = get_moves(pos, xs, ys, step=speed*dt)
@@ -378,8 +371,4 @@ def simulate(
     # remove last position so that traj and hs are same length
     traj = traj[:-1]
 
-    # return pos sequence, hit sequence, src_found flag, and optionally log_p_src
-    if not return_log_p_srcs:
-        return traj, hs, src_found
-    else:
-        return traj, hs, src_found, log_p_srcs
+    return traj, hs, src_found, log_p_srcs

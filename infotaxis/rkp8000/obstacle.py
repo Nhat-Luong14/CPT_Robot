@@ -1,8 +1,4 @@
 import numpy as np
-import sys
-from scipy.special import k0
-import matplotlib.pyplot as plt
-# from infotaxis import update_log_p_src
 from plot import set_font_size
 
 def is_collision(xs, ys, px, py):
