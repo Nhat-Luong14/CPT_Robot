@@ -1,18 +1,35 @@
+import random
 import numpy as np
 
-arr1 = np.array([
-    [True, True, True],
-    [True, True, True],
-    [True, False, False],
-    [False, False, False]])
+import matplotlib
+import matplotlib.pyplot as plt
+
+import matplotlib.animation as animation
 
 
-arr2 = np.array([
-    [60, 77, 88],
-    [23, 35, 48],
-    [33, 44, 55],
-    [99, 9, 202]])
+fps = 30
+nSeconds = 5
+snapshots = [ np.random.rand(5,5) for _ in range( nSeconds * fps ) ]
 
-b = np.ma.MaskedArray(arr2, arr1)
+# First set up the figure, the axis, and the plot element we want to animate
+fig = plt.figure( figsize=(8,8) )
 
-print(str(12) + ',' +  str(14))
+a = snapshots[0]
+im = plt.imshow(a, interpolation='none', aspect='auto', vmin=0, vmax=1)
+
+def animate_func(i):
+    if i % fps == 0:
+        print( '.', end ='' )
+
+    im.set_array(snapshots[i])
+    return [im]
+
+anim = animation.FuncAnimation(
+                               fig, 
+                               animate_func, 
+                               frames = nSeconds * fps,
+                               interval = 1000 / fps, # in ms
+                               )
+
+print('Done!')
+plt.show()  # Not required, it seems!

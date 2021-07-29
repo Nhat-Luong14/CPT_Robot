@@ -1,13 +1,11 @@
-"""
-infotaxis.py
-
-code for running infotaxis algorithm on an arbitrary plume
-"""
 from copy import copy
 import numpy as np
 from scipy.special import k0
 from scipy.stats import entropy as entropy_
 from obstacle import is_collision
+import dijkstra
+from obstacle import get_mask
+from collections import deque
 
 #ok
 def entropy(log_p_src):
@@ -68,6 +66,12 @@ def build_log_src_prior(prior_type, xs, ys):
         log_src_prior = log_p_unnormalized - log_norm_factor        # -logS
     else:
         raise NotImplementedError
+    
+
+    mask = get_mask(log_src_prior)
+    log_src_prior[mask] =  -np.inf
+
+
     return log_src_prior                                            # log(1/area) unnormalized
 
 
@@ -261,29 +265,31 @@ Run the infotaxis simulation.
 :param tau: particle lifetime (s)
 :return: trajectory, hit array, src_found flag, [list of source posteriors]
 """
-def simulate(plume, grid, start_pos, speed, dt, max_dur,
-    th, src_radius, w, d, r, a=0.003, tau=100):
-    
+def simulate(plume, grid, start_pos, speed, dt, max_dur, th, src_radius, w, d, r, a=0.003, tau=100):
     if get_length_constant(w=w, d=d, tau=tau) <= a:
-        raise Exception('lambda must be greater than a')      #Why??
+        raise Exception('lambda must be greater than a')
 
-    # compute some useful auxiliary variables
     xbs_ = plume.x_bounds
     ybs_ = plume.y_bounds
     xs = np.linspace(xbs_[0], xbs_[1], grid[0])
     ys = np.linspace(ybs_[0], ybs_[1], grid[1])
 
-    sample_domain = [0, 1]
-
     # initialize (log of) source distribution and position
     log_p_src = build_log_src_prior('uniform', xs=xs, ys=ys)
 
-    # loop over time steps
     pos = start_pos
     traj = [copy(pos)]  # position sequence
     hs = []  # hit sequence
     ss = []  # entropy sequence
+    mode = []
     log_p_srcs = []  # log src posterior sequence
+    sample_domain = [0, 1]
+    switch_2_djkstra = False
+    dijkstra_path = []
+    duplicate_list = deque(maxlen=10)
+
+    goal = plume.src_pos
+
 
     for t_ctr, t in enumerate(np.arange(0, max_dur, dt)):
         # check if source has been found
@@ -295,19 +301,45 @@ def simulate(plume, grid, start_pos, speed, dt, max_dur,
         c = plume.sample(pos, t)
         h = int(c >= th)
         hs.append(h)
+        mode.append(switch_2_djkstra)
 
         # update source posterior
-        log_p_src = update_log_p_src(
-            pos=pos, xs=xs, ys=ys, dt=dt, h=h,
-            w=w, d=d, r=r, a=a, tau=tau, src_radius=src_radius, log_p_src=log_p_src)
-        s = entropy(log_p_src)
+        log_p_src = update_log_p_src(pos=pos, xs=xs, ys=ys, dt=dt, h=h, w=w, d=d, 
+            r=r, a=a, tau=tau, src_radius=src_radius, log_p_src=log_p_src)
 
+        s = entropy(log_p_src)
         ss.append(s)
         log_p_srcs.append(log_p_src)
 
+
+
+
         # pick next move so as to maximally decrease expected entropy
-        moves = get_moves(pos, xs, ys, step=speed*dt)
+        if switch_2_djkstra:
+            if not dijkstra_path:
+                dijkstra_path = dijkstra.find_path(xs, ys, pos, goal)
+            moves = []
+            moves.append(dijkstra_path.pop())
+            if not dijkstra_path:
+                switch_2_djkstra = False
+        else:
+            dijkstra_path = []
+            moves = get_moves(pos, xs, ys, step=speed*dt)
+
+
+
         delta_s_expecteds = []
+
+
+
+
+
+
+
+
+
+
+
 
         # get entropy decrease given src found
         delta_s_src_found = -s
@@ -360,7 +392,25 @@ def simulate(plume, grid, start_pos, speed, dt, max_dur,
 
        # choose move that decreases p_source entropy the most
         pos = moves[np.argmin(delta_s_expecteds)]
+
+        if traj.count(pos):
+            duplicate_list.append(True)
+        else:
+            duplicate_list.append(False)
+
+        if duplicate_list.count(True) > 5 and switch_2_djkstra == False:
+            print("switched!!!!!")
+            switch_2_djkstra = True
+
+            visit_index = np.argmax(log_p_src)
+            id1, id2 = np.unravel_index(visit_index, log_p_src.shape)
+            xa, ya = np.meshgrid(xs, ys, indexing='ij')  
+            goal =(xa[id1, id2], ya[id1, id2])
+
+
         traj.append(copy(pos))
+
+
     else:
         src_found = False
 
@@ -371,4 +421,4 @@ def simulate(plume, grid, start_pos, speed, dt, max_dur,
     # remove last position so that traj and hs are same length
     traj = traj[:-1]
 
-    return traj, hs, src_found, log_p_srcs
+    return traj, hs, src_found, log_p_srcs, mode

@@ -1,8 +1,5 @@
 import numpy as np
-from numpy.lib.function_base import append
-from plume_processing import IdealPlume
 from obstacle import get_mask
-import sys
 
 agent_pt    = []
 # grid        =(101, 51)
@@ -114,7 +111,7 @@ def find_path(xs, ys, pos, goal):
         route.append([x_grid[id1, id2], y_grid[id1, id2]])
         last_parent_str = parent[id1, id2]
         
-        
+    return(route)
     route.reverse()
     return np.array(route)
     
