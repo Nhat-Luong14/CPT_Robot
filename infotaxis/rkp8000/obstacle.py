@@ -1,5 +1,4 @@
 import numpy as np
-from plot import set_font_size
 
 def is_collision(xs, ys, px, py):
     x_grid, y_grid = np.meshgrid(xs, ys, indexing='ij')

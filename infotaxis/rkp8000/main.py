@@ -5,12 +5,13 @@ import matplotlib.pyplot as plt
 from infotaxis import simulate
 from plume_processing import IdealPlume
 from obstacle import get_mask
+import dijkstra
 
 agent_pt    = []
 seed        =8 
 grid        =(101, 51)
 src_pos     =(.1, .5)
-start_pos   =(1.9, .9)
+start_pos   =(1.2, .2)
 dt          =.1
 speed       =.2
 max_dur     =40
@@ -71,6 +72,14 @@ if  __name__ == "__main__":
     traj, hs, src_found, log_p_srcs = simulate(
         plume=plume, grid=grid, start_pos=start_pos, speed=speed, dt=dt, 
         max_dur=max_dur, th=th, src_radius=src_radius, w=w, d=d, r=r, a=a, tau=tau)
+
+
+    xbs_ = plume.x_bounds
+    ybs_ = plume.y_bounds
+    xs = np.linspace(xbs_[0], xbs_[1], grid[0])
+    ys = np.linspace(ybs_[0], ybs_[1], grid[1])
+    traj = dijkstra.find_path(xs, ys, start_pos, src_pos)
+
 
     # Report result
     if src_found:

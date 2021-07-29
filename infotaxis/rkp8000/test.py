@@ -14,4 +14,5 @@ arr2 = np.array([
     [99, 9, 202]])
 
 b = np.ma.MaskedArray(arr2, arr1)
-print(np.ma.argmin(b))
+
+print(str(12) + ',' +  str(14))
