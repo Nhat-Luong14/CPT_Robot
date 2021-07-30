@@ -1,152 +1,82 @@
+from ast import literal_eval
 import numpy as np
 from obstacle import get_mask
+from config import *
 
-agent_pt    = []
-# grid        =(101, 51)
-# src_pos     =(.1, .5)
-# dt          =.1
-# speed       =.2
-# max_dur     =40
-# th          =.5
-# src_radius  =.02
-# w           =.5
-# d           =.05
-# r           =5
-# a           =.003
-# tau         =100
-step        =0.02
-
-
-# def is_goal_found(pos_index):
-#     dist = get_distance(x_grid, y_grid, src_pos)
-#     if (dis < src_radius):
-#         return True
-#     else:
-#         return False
-
-
-def get_distance(x_grid, y_grid, pos):
+"""
+Get the nearest cell index to the agent
+"""
+def get_index(pos):
     dx = x_grid - pos[0]
     dy = y_grid - pos[1]
     dist = np.sqrt(np.square(dx) + np.square(dy))
-    return dist
+    flat_idex = np.argmin(dist)
+    index = np.unravel_index(flat_idex, grid_shape)
+    return index
 
 
-def get_nearest_index(x_grid, y_grid, pos):
-    dist = get_distance(x_grid, y_grid, pos)
-    return np.argmin(dist)
-
-
-def get_neighbor_id(id1, id2, alive):
-    id = np.array([id1, id2])
+"""
+Get index of valid neigbor cells
+"""
+def get_neighbor_id(index, dead_map):
     neighbor_list = []
 
     for shift in [(0,1), (0,-1), (1,0), (-1,0)]:
-        neighbor_id = id + np.array(shift)
-        if neighbor_id[0] < 0 or neighbor_id[0] > 100 or neighbor_id[1] < 0 or neighbor_id[1] > 50:
-            pass
-        elif alive[neighbor_id[0], neighbor_id[1]] is False:
-            pass
+        idx = np.array(index) + np.array(shift)
+        if idx[0] < 0 or idx[0] >= grid[0] or idx[1] < 0 or idx[1] >= grid[1]:
+            continue
+        elif dead_map[idx[0], idx[1]] is True:
+            continue
         else:
-            neighbor_list.append(neighbor_id)
+            neighbor_list.append(tuple(idx))
+
     return neighbor_list
 
 
-def get_mask(x_grid):
-    map = np.zeros(x_grid.shape)
-    map[40:50, 0:40] = 1 #add obstacle
-    map[40:80, 30:40] = 1 #add obstacle
-    mask = (map==1)
-    return mask
+"""
+Path planning using Djkstra
+"""
+def find_path(pos, goal):
+    # initialize some matrix of value
+    cost_map = np.full(grid_shape, np.inf)
+    parent_map = np.full(grid_shape, "no_parent")
+    dead = np.full(grid_shape, False)
 
+    # add obstacles
+    mask = get_mask(grid_shape)
+    dead[mask] = True
 
+    goal_index = get_index(goal)
+    start_index = get_index(pos)
 
-def find_path(xs, ys, pos, goal):
-    x_grid, y_grid = np.meshgrid(xs, ys, indexing='ij')
-    shape = x_grid.shape
+    id = start_index
+    cost_map[id] = 0
 
-    dist_from_pos = np.full(shape, np.inf)
-    parent = np.full(shape, "null_value")
-    dead = np.full(shape, False)
-
-
-
-    obs_mask = get_mask(x_grid)
-    dead[obs_mask] = True
-
-
-    goal_index = get_nearest_index(x_grid, y_grid, goal)
-    start_index = get_nearest_index(x_grid, y_grid, pos)
-
-    id1, id2 = np.unravel_index(start_index, shape)
-    dist_from_pos[id1, id2] = 0
-    parent[id1, id2] = str(-1) + ',' + str(-1)
-    
     reach_goal = False
-
     while not reach_goal :
-        dead[id1, id2] = True
-        near_list = get_neighbor_id(id1, id2, dead)
+        dead[id] = True   # Examinated node
+        neighbor_list = get_neighbor_id(id, dead)
 
-        for i in range(len(near_list)):
-            near_id = near_list[i]
-            current_cost = dist_from_pos[near_id[0], near_id[1]]
-            estimate_cost = dist_from_pos[id1, id2] + step
+        for n_idex in neighbor_list:
+            current_cost = cost_map.item(n_idex)
+            estimate_cost = cost_map[id] + speed*dt
 
             if estimate_cost < current_cost:
-                dist_from_pos[near_id[0], near_id[1]] = estimate_cost
-                parent[near_id[0], near_id[1]] = str(id1) + ',' + str(id2) 
+                cost_map[n_idex] = estimate_cost
+                parent_map[n_idex] = str(id)
 
-        visit_index = np.argmin(np.ma.MaskedArray(dist_from_pos, dead))
-        id1, id2 = np.unravel_index(visit_index, shape)
+        visit_index = np.argmin(np.ma.MaskedArray(cost_map, dead))
+        id = np.unravel_index(visit_index, grid_shape)
         
-        if (visit_index == goal_index):
+        if (id == goal_index):
             reach_goal = True  
 
     route = []
-    last_parent_str = parent[id1, id2]
+    parent = parent_map[id]
 
-    while last_parent_str != "-1,-1":
-        id1, id2 = [int(s) for s in last_parent_str.split(',')]
-        route.append([x_grid[id1, id2], y_grid[id1, id2]])
-        last_parent_str = parent[id1, id2]
+    while parent != "no_parent":
+        id = literal_eval(parent)
+        route.append((x_grid[id], y_grid[id]))
+        parent = parent_map[id]
         
     return(route)
-    route.reverse()
-    return np.array(route)
-    
-    # # # x = list(traj[:, 0])
-    # # # y = list(traj[:, 1])
-    # # # agent_pt, = ax_main.plot(x, y, 'bo')
-    # # # ani = animation.F1plume.src_pos, marker='*', s=100, c='k', zorder=2)
-
-    # # # # set figure axis limits
-    # # # ax_main.set_xlim(extent[:2])
-    # # # ax_main.set_ylim(extent[2:])
-
-    # # # # make figure labels
-    # # # ax_main.set_xlabel('x (m)')
-    # # # ax_main.set_ylabel('y (m)')
-    # # # plt.show()
-
-
-
-        
-
-
-
-
-
-
-
-
-
-# np.set_printoptions(threshold=sys.maxsize)
-
-# plume = IdealPlume(src_pos=src_pos, w=w, d=d, r=r, a=a, tau=tau, dt=dt)
-# xbs_ = plume.x_bounds
-# ybs_ = plume.y_bounds
-# xs = np.linspace(xbs_[0], xbs_[1], grid[0])
-# ys = np.linspace(ybs_[0], ybs_[1], grid[1])
-# pos = (1.6, 0.6)
-# find_path(xs, ys, pos, src_pos)

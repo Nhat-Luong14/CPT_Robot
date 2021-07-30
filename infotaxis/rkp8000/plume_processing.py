@@ -3,6 +3,7 @@ Code for creating plume objects.
 """
 from infotaxis import get_hit_rate
 import numpy as np
+from config import xs, ys
 
 
 class IdealPlume(object):
@@ -14,8 +15,6 @@ class IdealPlume(object):
         self.tau = tau
         self.a = a
         self.dt = dt
-        self.x_bounds = (0, 2)
-        self.y_bounds = (0, 1)
 
     def sample(self, pos, t):
         xs_src = np.array([self.src_pos[0]])
@@ -30,10 +29,6 @@ class IdealPlume(object):
         return sample
 
     def get_profile(self, grid):
-
-        xs = np.linspace(*self.x_bounds, num=grid[0])
-        ys = np.linspace(*self.y_bounds, num=grid[1])
-
         xs_src = np.array([self.src_pos[0]])
         ys_src = np.array([self.src_pos[1]])
 
