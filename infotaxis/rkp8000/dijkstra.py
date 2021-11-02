@@ -43,7 +43,7 @@ def find_path(pos, goal):
     dead = np.full(grid_shape, False)
 
     # add obstacles
-    mask = get_mask(grid_shape)
+    mask = get_mask()
     dead[mask] = True
 
     goal_index = get_index(goal)
