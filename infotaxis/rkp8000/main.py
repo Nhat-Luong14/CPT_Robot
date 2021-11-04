@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 
 from infotaxis import simulate
 from plume_processing import IdealPlume
-from obstacle import get_mask
+from obstacle import get_region
 from config import *
 import matplotlib.animation as animation
 
@@ -37,7 +37,7 @@ def animate(i):
 def visualize():
     global agent_pt
     conc, extent = plume.get_profile()
-    mask = get_mask()
+    mask, blind_zone, bound_zone = get_region()
     conc[mask] = 0
 
     fig, ax_main = plt.subplots()
@@ -46,7 +46,7 @@ def visualize():
     x = list(traj[:, 0])
     y = list(traj[:, 1])
     agent_pt, = ax_main.plot(x, y, 'bo')
-    ani = animation.FuncAnimation(fig, animate, frames=len(x), interval=20, blit=True, save_count=50,repeat=False)
+    ani = animation.FuncAnimation(fig, animate, frames=len(x), interval=100, blit=True, save_count=50,repeat=False)
 
     # mark source location
     ax_main.scatter(*src_pos, marker='*', s=100, c='k', zorder=2)
@@ -63,7 +63,7 @@ def visualize():
 
 
 if  __name__ == "__main__":
-    for i in range(2):
+    for i in range(10):
         # Generate a random ideal gas distribution
         np.random.seed(i+1)                            
         plume = IdealPlume()
@@ -77,5 +77,4 @@ if  __name__ == "__main__":
             print('Trial {}: Source not found after {} time steps ({} s)'.format(
                 i+1, len(traj), len(traj) * dt))
         print('=============================================================')
-
         visualize()

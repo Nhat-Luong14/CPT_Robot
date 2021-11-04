@@ -1,6 +1,6 @@
 from ast import literal_eval
 import numpy as np
-from obstacle import get_mask
+from obstacle import get_region
 from config import *
 
 """
@@ -43,7 +43,7 @@ def find_path(pos, goal):
     dead = np.full(grid_shape, False)
 
     # add obstacles
-    mask = get_mask()
+    mask, blind_zone, bound_zone = get_region()
     dead[mask] = True
 
     goal_index = get_index(goal)

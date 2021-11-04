@@ -2,9 +2,8 @@ from copy import copy
 import numpy as np
 from scipy.special import k0
 from scipy.stats import entropy as entropy_
-from obstacle import is_collision
 from dijkstra import find_path
-from obstacle import get_mask
+from obstacle import get_region, is_collision
 from collections import deque
 from config import *
 
@@ -57,7 +56,7 @@ def build_log_src_prior(prior_type, xs, ys):
         raise NotImplementedError
     
     # Add obstacles
-    mask = get_mask()
+    mask, blind_zone, bound_zone = get_region()
     log_src_prior[mask] = -np.inf
     return log_src_prior                     
 
@@ -95,6 +94,12 @@ def get_p_src_found(pos,log_p_src):
     return p_src_found
 
 
+def coor2cell(pos):
+    x_cell = round((pos[0] - x_bounds[0])/step)
+    y_cell = round((pos[1] - y_bounds[0])/step)
+    return(x_cell, y_cell)
+
+
 """
 Calculate hit rate at specified position for grid of possible source locations.
 This is given by Eq. 7 in the infotaxis paper
@@ -102,29 +107,61 @@ This is given by Eq. 7 in the infotaxis paper
 :return: grid of hit rates, with one value per source location
 """
 def get_hit_rate(xs_src, ys_src, pos):
+    mask, blind_zone, bound_zone = get_region()
     xs_src_, ys_src_ = np.meshgrid(xs_src, ys_src, indexing='ij')   #create matrix of x and y
     dx = pos[0] - xs_src_               # matrix of distance form a postion to each cells
     dy = pos[1] - ys_src_
+
+    pos_cell = coor2cell(pos)
 
     # round dx's and dy's less than resolution down to zero
     resolution=0.00001
     dx[np.abs(dx) < resolution] = 0
     dy[np.abs(dy) < resolution] = 0
 
-    # calc scale factor
-    scale_factor = r / np.log(lam/a)
+    ry = np.exp( -2* np.square(dy/(lam+dx*d)) )
 
-    # calc exponential term
+    mask_1 = dx >= 1/np.sqrt(decay_param)
+    mask_2 = dx < 0
+    rx = 1 - decay_param*(np.square(dx) + np.square(dy))
+    rx[mask_1]= 0
+    rx[mask_2] = 0
+
+    rm = 1/(random_walk_param*(np.square(dx) + np.square(dy) + 1))
+    
+    # if blind_zone[pos_cell] == True:
+    #     first_term = 0
+    # else: 
+    #     first_term = rx*ry
+
+
+
+
+
+    scale_factor = release_rate / np.log(lam/a)
     exp_term = np.exp((w/(2*d))*dx)
-
-    # calc bessel term
     abs_dist = np.sqrt(dx**2 + dy**2)
     bessel_term = np.exp(log_k0(abs_dist / lam))
 
-    # calc final hit rate
-    hit_rate = scale_factor * exp_term * bessel_term
+    if blind_zone[pos_cell] == True:
+        first_term = 0
+    else: 
+        first_term = scale_factor * exp_term * bessel_term
+
+
+    
+
+    if bound_zone[pos_cell] == True:
+        second_term = rx/2
+    else: 
+        second_term = 0
+        
+    # hit_rate = release_rate*(first_term + second_term + rm)
+    hit_rate = release_rate*(rm + second_term + first_term)
+
+    
     if hit_rate.shape != (1,1):
-        mask = get_mask()
+        
         hit_rate[mask] = 0.000000000001 #advoid devide by zero
     return hit_rate
 
@@ -188,6 +225,49 @@ def update_log_p_src(pos, h, log_p_src):
     return log_p_src
 
 
+def get_entropy_gain(moves, s, log_p_src):
+    # estimate expected decrease in p_source entropy for each possible move
+    delta_s_expecteds = []
+    delta_s_src_found = -s      # entropy decrease given src found
+    sample_domain = [0, 1]
+    
+    for move in moves:
+        # set entropy increase to inf if out of bounds
+        if not round(x_bounds[0], 6) <= round(move[0], 6) <= round(x_bounds[1], 6):
+            delta_s_expecteds.append(np.inf)
+            continue
+        elif not round(y_bounds[0], 6) <= round(move[1], 6) <= round(y_bounds[1], 6):
+            delta_s_expecteds.append(np.inf)
+            continue
+
+        # get probability of finding source
+        p_src_found = get_p_src_found(move,log_p_src)
+        p_src_not_found = 1 - p_src_found
+
+        # loop over probability and expected entropy decrease for each sample
+        p_samples = np.nan * np.zeros(len(sample_domain))
+        delta_s_given_samples = np.nan * np.zeros(len(sample_domain))
+
+        for ctr, h in enumerate(sample_domain):
+            p_sample = get_p_sample(move, h, log_p_src)         # probability of sampling h at pos
+            log_p_src_ = update_log_p_src(move, h, log_p_src)   # posterior distribution from sampling h at pos                       
+            delta_s_given_sample = entropy(log_p_src_) - s    # decrease in entropy for this move/sample
+
+            p_samples[ctr] = p_sample
+            delta_s_given_samples[ctr] = delta_s_given_sample
+
+        # get expected entropy decrease given source not found
+        delta_s_src_not_found = p_samples.dot(delta_s_given_samples)
+
+        # compute total expected entropy decrease
+        delta_s_expected = (p_src_found * delta_s_src_found) + \
+            (p_src_not_found * delta_s_src_not_found)
+
+        delta_s_expecteds.append(delta_s_expected)
+    return delta_s_expecteds
+
+
+
 """
 Run the infotaxis simulation.
 :param plume: plume object
@@ -199,9 +279,7 @@ def simulate(plume):
 
     djkstra_mode  = False
     log_p_src  = build_log_src_prior('uniform', xs, ys)    # initialize source distribution
-    sample_domain = [0, 1]
     pos        = start_pos
-
     traj       = [copy(start_pos)]   # position sequence
     h_seq      = []            # hit sequence
     s_seq      = []            # entropy sequence
@@ -236,60 +314,25 @@ def simulate(plume):
                 djkstra_mode = False
         else:
             path.clear()
-            moves = get_moves(pos, step=speed*dt)
+            moves = get_moves(pos, step)
 
 
-        # estimate expected decrease in p_source entropy for each possible move
-        delta_s_expecteds = []
-        delta_s_src_found = -s      # entropy decrease given src found
-        for move in moves:
-            # set entropy increase to inf if out of bounds
-            if not round(x_bounds[0], 6) <= round(move[0], 6) <= round(x_bounds[1], 6):
-                delta_s_expecteds.append(np.inf)
-                continue
-            elif not round(y_bounds[0], 6) <= round(move[1], 6) <= round(y_bounds[1], 6):
-                delta_s_expecteds.append(np.inf)
-                continue
-
-            # get probability of finding source
-            p_src_found = get_p_src_found(move,log_p_src)
-            p_src_not_found = 1 - p_src_found
-
-            # loop over probability and expected entropy decrease for each sample
-            p_samples = np.nan * np.zeros(len(sample_domain))
-            delta_s_given_samples = np.nan * np.zeros(len(sample_domain))
-
-            for ctr, h in enumerate(sample_domain):
-                p_sample = get_p_sample(move, h, log_p_src)         # probability of sampling h at pos
-                log_p_src_ = update_log_p_src(move, h, log_p_src)   # posterior distribution from sampling h at pos                       
-                delta_s_given_sample = entropy(log_p_src_)   - s    # decrease in entropy for this move/sample
-
-                p_samples[ctr] = p_sample
-                delta_s_given_samples[ctr] = delta_s_given_sample
-
-            # get expected entropy decrease given source not found
-            delta_s_src_not_found = p_samples.dot(delta_s_given_samples)
-
-            # compute total expected entropy decrease
-            delta_s_expected = (p_src_found * delta_s_src_found) + \
-                (p_src_not_found * delta_s_src_not_found)
-
-            delta_s_expecteds.append(delta_s_expected)
+        delta_s_expecteds = get_entropy_gain(moves, s, log_p_src)
 
         # choose move that decreases p_source entropy the most
         pos = moves[np.argmin(delta_s_expecteds)]
 
-        if traj.count(pos):
-            duplicate_list.append(True)
-        else:
-            duplicate_list.append(False)
+        # if traj.count(pos):
+        #     duplicate_list.append(True)
+        # else:
+        #     duplicate_list.append(False)
 
-        if duplicate_list.count(True) > 5 and djkstra_mode == False:
-            print("Switch to Djkstra at " + str(pos))
-            djkstra_mode = True
-            goal_id = np.unravel_index(np.argmax(log_p_src), log_p_src.shape)
-            goal =(x_grid[goal_id], y_grid[goal_id])
-            path = find_path(pos, goal)
+        # if duplicate_list.count(True) > 5 and djkstra_mode == False:
+        #     print("Switch to Djkstra at " + str(pos))
+        #     djkstra_mode = True
+        #     goal_id = np.unravel_index(np.argmax(log_p_src), log_p_src.shape)
+        #     goal =(x_grid[goal_id], y_grid[goal_id])
+        #     path = find_path(pos, goal)
 
         traj.append(copy(pos))
     else:
