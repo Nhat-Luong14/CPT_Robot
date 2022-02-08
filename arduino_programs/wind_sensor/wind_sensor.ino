@@ -1,25 +1,33 @@
-/* 
-This code is created by Duc-Nhat Luong 
+/**
+ * @file wind_sensor.ino
+ *
+ * @brief This code demonstrate communication between Arduino and Wind sensor (FT205EV)
+ * using software serial. Wind data is read and published to ROS network
+ *
+ * @author Luong Duc Nhat
+ * Contact: luong.d.aa@m.titech.ac.jp
+ * 
+ * @copyright Copyright 2021, The Chemical Plume Tracing (CPT) Robot Project"
+ * credits ["Luong Duc Nhat"]
+ */
 
-This code demonstrate communication between Arduino and Wind sensor 
-using software serial. Wind data is read and published to ROS network
-*/
 
 #include <SoftwareSerial.h>
 #include <ros.h>
 #include <std_msgs/String.h>
+#include <olfaction_msgs/anemometer.h>
 
 SoftwareSerial windSerial(10,11);
 
 ros::NodeHandle nh;
-std_msgs::String str_msg;
-ros::Publisher chatter("chatter", &str_msg);
+std_msgs::String msg;
+ros::Publisher chatter("chatter", &msg);
 
 void setup() {
     nh.initNode();
     nh.advertise(chatter);
     
-    windSerial.begin(9600);
+    windSerial.begin(9600);     //baud rate of 9600 baud is Factory Default Setting
     Serial.begin(9600);
     delay(6000);
 
@@ -34,6 +42,11 @@ void setup() {
     //Disable compass
     windSerial.write("$01CFD*//\r\n");
     delay(1000);
+
+    //SET baud rate to 19200
+    //The new baud rate will be only valid in next powered-up or after a Reset command (RSU) 
+    windSerial.write("$01BR1*//\r\n");  
+    delay(2000);
 }
 
 void loop() {
@@ -44,9 +57,8 @@ void loop() {
         char inChar = windSerial.read();
         storedData += inChar;
     }
-    str_msg.data = storedData.c_str();
-    chatter.publish( &str_msg );
+    msg.data = storedData.c_str();
+    chatter.publish( &msg );
     nh.spinOnce();
     delay(200);
 }
-
