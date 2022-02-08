@@ -12,11 +12,6 @@
  * 
  * @copyright Copyright 2021, The Chemical Plume Tracing (CPT) Robot Project"
  * credits ["Luong Duc Nhat"]
- * license GPL
- * 
- * @version    = "1.0.0"
- * maintainer  = "Luong Duc Nhat"
- * status      = "Production"
  */
 
 #include <PID_v1.h>
